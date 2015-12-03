@@ -1,2 +1,2 @@
 #!/bin/bash
-g++ rt.cpp -I. -o ../build/rt
+g++ rt.cpp -lSDL2 -I. -o ../build/rt
