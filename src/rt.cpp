@@ -19,6 +19,18 @@ struct v3
   float z;
 };
 
+struct ray
+{
+  v3 origin;
+  v3 direction;
+};
+
+struct sphere
+{
+  v3 center;
+  float radius;
+};
+
 typedef int* Sphere;
 typedef int Ray;
 
