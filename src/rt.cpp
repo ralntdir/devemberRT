@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <float.h>
+#include <math.h>
 
 using namespace std;
 
@@ -19,26 +20,63 @@ struct v3
   float z;
 };
 
-struct ray
+struct Ray
 {
   v3 origin;
   v3 direction;
 };
 
-struct sphere
+struct Sphere
 {
   v3 center;
   float radius;
+  v3 color;
 };
-
-typedef int* Sphere;
-typedef int Ray;
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Texture* texture = NULL;
 
 v3 color = {255.0, 0.0, 0.0};
+
+void printV3(v3 vector)
+{
+  cout << vector.x << ", " << vector.y << ", " << vector.z << endl;
+}
+
+float dotProduct(v3 vector1, v3 vector2)
+{
+  return (vector1.x * vector2.x +
+          vector1.y * vector2.y +
+          vector1.z * vector2.z);
+}
+
+v3 subtraction(v3 vector1, v3 vector2)
+{
+  v3 result;
+  result = {vector1.x - vector2.x,
+            vector1.y - vector2.y,
+            vector1.z - vector2.z};
+  return result;
+}
+
+v3 addition(v3 vector1, v3 vector2)
+{
+  v3 result;
+  result = {vector1.x + vector2.x,
+            vector1.y + vector2.y,
+            vector1.z + vector2.z};
+  return result;
+}
+
+v3 vectorByScalar(v3 vector, float scalar)
+{
+  v3 result;
+  result ={vector.x * scalar,
+           vector.y * scalar,
+           vector.z * scalar};
+  return result;
+}
 
 bool init()
 {
@@ -108,7 +146,63 @@ bool intersect(Sphere sphere, Ray ray, v3 *hitPoint)
 {
   // first version for an intersect method
   // we just need the hit point for the intersection
-  return false;
+  bool success;
+  float a = dotProduct(ray.direction, ray.direction);
+  float b = 2 * dotProduct(ray.direction, 
+                           subtraction(ray.origin, sphere.center)); 
+  float c = dotProduct(subtraction(ray.origin, sphere.center),
+                       subtraction(ray.origin, sphere.center)) - 
+            sphere.radius * sphere.radius;
+
+  float discriminant = b * b - 4 * a * c;
+  // If the discriminant is less than cero, we have complex roots
+  if (discriminant < 0)
+  {
+    success = false;
+  }
+  else
+  {
+    float t, t1, t2;
+
+    t1 = (-b + sqrt(discriminant)) / (2 * a); 
+    t2 = (-b - sqrt(discriminant)) / (2 * a); 
+
+    //cout << "t1: " << t1 << ", t2: " << t2 << endl;
+
+    // If both roots are negative -> no solution
+    if ((t1 < 0) && (t2 < 0))
+    {
+      success = false;
+    }
+    // Otherwise, we have solution. Which one?
+    else
+    {
+      success = true;
+
+      // Refactor this
+      if ((t1 > 0) && (t2 < 0))
+      {
+        t = t1;
+      }
+      else if ((t1 < 0) && (t2 > 0))
+      {
+        t = t2;
+      }
+      else if (t1 <= t2)
+      {
+        t = t1;
+      }
+      else if (t1 >= t2)
+      {
+        t = t2;
+      }
+
+      *hitPoint = addition(ray.origin, vectorByScalar(ray.direction, t));
+    }
+  }
+
+  success = false;
+  return success;
 }
 
 void render()
@@ -118,7 +212,7 @@ void render()
   // Then I will add diffuse shading (lights) and after that
   // shadows.
   vector<Sphere> scene;
-  v3 eyePosition;
+  v3 eyePosition = {0.0f, 0.0f, 0.0f};
 
   v3 image[WIDTH][HEIGHT] = {};
 
@@ -132,6 +226,11 @@ void render()
   }*/
 
   // prepare the scene
+  Sphere testSphere = {};
+  testSphere.center = {0.0f, 0.0f, 4.0f};
+  testSphere.radius = 2.0f;
+  testSphere.color = {255.0f, 255.0f, 0.0f};
+  scene.push_back(testSphere);
 
   // trace rays
   for (int i = 0; i < WIDTH; i++)
@@ -140,10 +239,15 @@ void render()
     {
       // create the ray based in eye position, i and j
       Ray ray;
+      ray.origin = eyePosition;
+      // I need to calculate the direction of the ray I'm
+      // casting based on its origin, i and j?? Check the 
+      // theory, as I am a bit lost in this part.
+      //ray.direction = ???;
       v3 hitPoint;
       float minDistance = FLT_MAX;
       
-      Sphere closerObject = NULL;
+      Sphere *closerObject = NULL;
 
       for (int k = 0; k < scene.size(); k++)
       {
@@ -157,7 +261,7 @@ void render()
           
           if (dist < minDistance)
           {
-            closerObject = scene[k];
+            closerObject = &scene[k];
             minDistance = dist;
           }
         } 
