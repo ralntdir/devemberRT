@@ -10,8 +10,8 @@
 
 using namespace std;
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 35
+#define HEIGHT 35
 
 struct v3
 {
@@ -75,6 +75,18 @@ v3 vectorByScalar(v3 vector, float scalar)
   result ={vector.x * scalar,
            vector.y * scalar,
            vector.z * scalar};
+  return result;
+}
+
+v3 normalize(v3 vector)
+{
+  float length = sqrt(vector.x * vector.x +
+                      vector.y * vector.y +
+                      vector.z * vector.z);
+
+  v3 result = {vector.x / length, vector.y / length,
+               vector.z / length};
+  //printV3(result);
   return result;
 }
 
@@ -205,12 +217,37 @@ bool intersect(Sphere sphere, Ray ray, v3 *hitPoint)
   return success;
 }
 
+v3 calculateDirection(v3 origin, float x, float y)
+{
+  v3 result = {};
+
+  // We add 0.5 as we want the direction to the
+  // center of the pixel. We make z=1 because
+  // thats where the screen is located?
+  // TODO(ivan): check screen position
+  v3 pixelCoords = {x + 0.5f, y + 0.5f, 1.0f};
+
+  result = subtraction(pixelCoords, origin);
+  //printV3(result);
+  result = normalize(result);
+
+  return result;
+}
+
 void render()
 {
   // Creates an image using the ray tracing method.
   // The first prototype will have only spheres and flat shading.
   // Then I will add diffuse shading (lights) and after that
   // shadows.
+
+  // TODO(ivan): I need to define the camera and the plane
+  // I'm projecting the scene on!!!
+
+  // TODO(ivan): Decide the coordinate system. Right now I'm 
+  // working with a left handed cs, but maybe I should change to
+  // a right handed one
+  
   vector<Sphere> scene;
   v3 eyePosition = {0.0f, 0.0f, 0.0f};
 
@@ -228,7 +265,7 @@ void render()
   // prepare the scene
   Sphere testSphere = {};
   testSphere.center = {0.0f, 0.0f, 4.0f};
-  testSphere.radius = 2.0f;
+  testSphere.radius = 30.0f;
   testSphere.color = {255.0f, 255.0f, 0.0f};
   scene.push_back(testSphere);
 
@@ -244,6 +281,8 @@ void render()
       // casting based on its origin, i and j?? Check the 
       // theory, as I am a bit lost in this part.
       //ray.direction = ???;
+      ray.direction = calculateDirection(ray.origin, i - WIDTH/2, j - HEIGHT/2);
+      printV3(ray.direction);
       v3 hitPoint;
       float minDistance = FLT_MAX;
       
@@ -253,6 +292,7 @@ void render()
       {
         if (intersect(scene[k], ray, &hitPoint))
         {
+          cout << "FOO" << endl;
           // Calculate the distance between hitPoint and eye
           // If it is less than the previous one, this is 
           // the closer object, and we have to store it in order
