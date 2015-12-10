@@ -33,6 +33,16 @@ struct Sphere
   glm::vec3 center;
   float radius;
   glm::vec3 color;
+  glm::vec3 ambient = {51.0f, 51.0f, 51.0f};
+  glm::vec3 diffuse = {128.0f, 128.0f, 128.0f};
+  glm::vec3 specular= {255.0f, 255.0f, 255.0f};
+  float shininess = 100.0f;
+};
+
+struct Light
+{
+  glm::vec3 position;
+  glm::vec3 color;
 };
 
 SDL_Window* window = NULL;
@@ -105,12 +115,7 @@ void close()
   SDL_Quit();
 }
 
-float myDistance(glm::vec3 point1, glm::vec3 point2)
-{
-  return 0.0f;
-}
-
-bool intersect(Sphere sphere, Ray ray, glm::vec3 *hitPoint)
+bool intersect(Sphere sphere, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
 {
   // first version for an intersect method
   // we just need the hit point for the intersection
@@ -169,6 +174,8 @@ bool intersect(Sphere sphere, Ray ray, glm::vec3 *hitPoint)
       }
 
       *hitPoint = ray.origin + ray.direction * t;
+      //*hitPoint = ray.origin + ray.direction * (t - 0.1f);
+      *hitNormal = glm::normalize(*hitPoint - sphere.center);
     }
   }
 
@@ -192,6 +199,10 @@ void render()
   
   vector<Sphere> scene;
   glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
+  Light testLight = {};
+  testLight.position = {2.0f, 5.0f, -8.0f};
+  testLight.color = {255.0f, 255.0f, 255.0f};
+
 
   glm::vec3 image[WIDTH][HEIGHT] = {};
 
@@ -199,37 +210,38 @@ void render()
   Sphere testSphere = {};
   testSphere.center = {0.0f, 0.0f, -16.0f};
   testSphere.radius = 6.0f;
-  testSphere.color = {255.0f, 255.0f, 0.0f};
+  testSphere.color = {0.0f, 0.0f, 255.0f};
   scene.push_back(testSphere);
-  testSphere.center = {0.0f, 0.0f, -7.0f};
+  /*testSphere.center = {0.0f, 0.0f, -7.0f};
   testSphere.radius = 1.0f;
   testSphere.color = {0.0f, 255.0f, 255.0f};
   scene.push_back(testSphere);
   testSphere.center = {0.0f, 5.0f, -7.0f};
   testSphere.radius = 2.0f;
   testSphere.color = {0.0f, 255.0f, 0.0f};
-  scene.push_back(testSphere);
+  scene.push_back(testSphere);*/
 
   // In degrees
-  float fov = 100.0f;
+  float fov = 90.0f;
   float aspectRatio = (float)WIDTH / (float)HEIGHT;
 
   // trace rays
-  for (int j = 0; j < HEIGHT; j++)
+  for (int y = 0; y < HEIGHT; y++)
   {
-    for (int i = 0; i < WIDTH; i++)
+    for (int x = 0; x < WIDTH; x++)
     {
-      // create the ray based in eye position, i and j
+      // create the ray based in eye position, x and y
       Ray ray;
       ray.origin = eyePosition;
-      float pX = (2 * ((i + 0.5) / WIDTH) - 1) * tan(fov / 2 * M_PI / 180) * aspectRatio;
-      float pY = (1 - 2 * ((j + 0.5) / HEIGHT)) * tan(fov / 2 * M_PI / 180);
+      float pX = (2 * ((x + 0.5) / WIDTH) - 1) * tan(fov / 2 * M_PI / 180) * aspectRatio;
+      float pY = (1 - 2 * ((y + 0.5) / HEIGHT)) * tan(fov / 2 * M_PI / 180);
       // As the origin is (0, 0, 0), I don't need to do the subtraction
       ray.direction = {pX, pY, -1.0f};
-      ray.direction = normalize(ray.direction);
+      ray.direction = glm::normalize(ray.direction);
       //printV3(ray.direction);
 
       glm::vec3 hitPoint;
+      glm::vec3 hitNormal;
 
       float minDistance = FLT_MAX;
       
@@ -237,7 +249,7 @@ void render()
 
       for (int k = 0; k < scene.size(); k++)
       {
-        if (intersect(scene[k], ray, &hitPoint))
+        if (intersect(scene[k], ray, &hitPoint, &hitNormal))
         {
           //cout << "FOO" << endl;
           // Calculate the distance between hitPoint and eye
@@ -257,24 +269,46 @@ void render()
       // For the moment is going to be always NULL
       if (closerObject == NULL)
       {
-        image[i][j] = color;
+        image[x][y] = color;
       }
       else
       {
-        image[i][j] = closerObject->color;
+        Ray shadowRay;
+        glm::vec3 hitPointS;
+        glm::vec3 hitNormalS;
+        shadowRay.direction = glm::normalize(testLight.position - hitPoint);
+        bool inShadow = false;
+        for (int k = 0; k < scene.size(); k++)
+        {
+          if (intersect(scene[k], shadowRay, &hitPointS, &hitNormalS))
+          {
+            inShadow = true;
+            break;
+          } 
+        }
+
+        if (!inShadow)
+        {
+          //image[x][y] = testLight.color * (closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f));
+          image[x][y] = closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f);
+        }
+        else
+        {
+          image[x][y] = {0.0f, 0.0f, 0.0f};
+        }
       }
     }
   }
 
   std::ofstream ofs("./untitled.ppm", std::ios::out | std::ios::binary);
   ofs << "P6\n" << WIDTH << " " << HEIGHT << "\n255\n";
-  for (unsigned i = 0; i < WIDTH; i++)
+  for (unsigned y = 0; y < HEIGHT; y++)
   {
-    for (unsigned j = 0; j < HEIGHT; j++)
+    for (unsigned x = 0; x < WIDTH; x++)
     {
-      ofs << (unsigned char)(image[i][j].x) <<
-             (unsigned char)(image[i][j].y) <<
-             (unsigned char)(image[i][j].z);
+      ofs << (unsigned char)(image[x][y].x) <<
+             (unsigned char)(image[x][y].y) <<
+             (unsigned char)(image[x][y].z);
     }
   } 
 
