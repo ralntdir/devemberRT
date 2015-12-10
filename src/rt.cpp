@@ -8,6 +8,8 @@
 #include <float.h>
 #include <math.h>
 
+#include <glm/glm.hpp>
+
 using namespace std;
 
 #define WIDTH 500
@@ -22,72 +24,26 @@ struct v3
 
 struct Ray
 {
-  v3 origin;
-  v3 direction;
+  glm::vec3 origin;
+  glm::vec3 direction;
 };
 
 struct Sphere
 {
-  v3 center;
+  glm::vec3 center;
   float radius;
-  v3 color;
+  glm::vec3 color;
 };
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Texture* texture = NULL;
 
-v3 color = {255.0, 0.0, 0.0};
+glm::vec3 color = {255.0, 0.0, 0.0};
 
-void printV3(v3 vector)
+void printV3(glm::vec3 vector)
 {
   cout << vector.x << ", " << vector.y << ", " << vector.z << endl;
-}
-
-float dotProduct(v3 vector1, v3 vector2)
-{
-  return (vector1.x * vector2.x +
-          vector1.y * vector2.y +
-          vector1.z * vector2.z);
-}
-
-v3 subtraction(v3 vector1, v3 vector2)
-{
-  v3 result;
-  result = {vector1.x - vector2.x,
-            vector1.y - vector2.y,
-            vector1.z - vector2.z};
-  return result;
-}
-
-v3 addition(v3 vector1, v3 vector2)
-{
-  v3 result;
-  result = {vector1.x + vector2.x,
-            vector1.y + vector2.y,
-            vector1.z + vector2.z};
-  return result;
-}
-
-v3 vectorByScalar(v3 vector, float scalar)
-{
-  v3 result;
-  result ={vector.x * scalar,
-           vector.y * scalar,
-           vector.z * scalar};
-  return result;
-}
-
-v3 normalize(v3 vector)
-{
-  float length = sqrt(vector.x * vector.x +
-                      vector.y * vector.y +
-                      vector.z * vector.z);
-
-  v3 result = {vector.x / length, vector.y / length,
-               vector.z / length};
-  //printV3(result);
-  return result;
 }
 
 bool init()
@@ -149,23 +105,22 @@ void close()
   SDL_Quit();
 }
 
-float myDistance(v3 point1, v3 point2)
+float myDistance(glm::vec3 point1, glm::vec3 point2)
 {
   return 0.0f;
 }
 
-bool intersect(Sphere sphere, Ray ray, v3 *hitPoint)
+bool intersect(Sphere sphere, Ray ray, glm::vec3 *hitPoint)
 {
   // first version for an intersect method
   // we just need the hit point for the intersection
   bool success;
-  float a = dotProduct(ray.direction, ray.direction);
+  float a = glm::dot(ray.direction, ray.direction);
   //cout << a << endl;
-  float b = 2 * dotProduct(ray.direction, 
-                           subtraction(ray.origin, sphere.center)); 
+  float b = 2 * glm::dot(ray.direction, ray.origin - sphere.center); 
   //cout << b << endl;
-  float c = dotProduct(subtraction(ray.origin, sphere.center),
-                       subtraction(ray.origin, sphere.center)) - 
+  float c = glm::dot(ray.origin - sphere.center, 
+                            ray.origin - sphere.center) - 
             sphere.radius * sphere.radius;
 
   //cout << c << endl;
@@ -213,7 +168,7 @@ bool intersect(Sphere sphere, Ray ray, v3 *hitPoint)
         t = t2;
       }
 
-      *hitPoint = addition(ray.origin, vectorByScalar(ray.direction, t));
+      *hitPoint = ray.origin + ray.direction * t;
     }
   }
 
@@ -229,32 +184,30 @@ void render()
 
   // TODO(ivan): I need to define the camera and the plane
   // I'm projecting the scene on!!!
-  // For the moment, the camera is at (0, 0, 0) and pointing 
-  // to +Z and the plane is an XY plane at Z=1;
+  // NOTE(ivan): For the moment, the camera is at (0, 0, 0) and pointing 
+  // to -Z and the plane is an XY plane at Z=-1;
 
-  // TODO(ivan): Decide the coordinate system. Right now I'm 
-  // working with a left handed cs, but maybe I should change to
-  // a right handed one
+  // NOTE(ivan): I'm working with a right handed one coordinate
+  // system
   
   vector<Sphere> scene;
-  v3 eyePosition = {0.0f, 0.0f, 0.0f};
+  glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
 
-  v3 image[WIDTH][HEIGHT] = {};
-
-  /*for (int i = 0; i < WIDTH; i++)
-  {
-    for (int j = 0; j < HEIGHT; j++)
-    {
-      cout << image[i][j].x << ", " << image[i][j].y 
-           << ", " << image[i][j].z << endl;
-    }
-  }*/
+  glm::vec3 image[WIDTH][HEIGHT] = {};
 
   // prepare the scene
   Sphere testSphere = {};
-  testSphere.center = {0.0f, 0.0f, 4.0f};
-  testSphere.radius = 3.0f;
+  testSphere.center = {0.0f, 0.0f, -16.0f};
+  testSphere.radius = 6.0f;
   testSphere.color = {255.0f, 255.0f, 0.0f};
+  scene.push_back(testSphere);
+  testSphere.center = {0.0f, 0.0f, -7.0f};
+  testSphere.radius = 1.0f;
+  testSphere.color = {0.0f, 255.0f, 255.0f};
+  scene.push_back(testSphere);
+  testSphere.center = {0.0f, 5.0f, -7.0f};
+  testSphere.radius = 2.0f;
+  testSphere.color = {0.0f, 255.0f, 0.0f};
   scene.push_back(testSphere);
 
   // In degrees
@@ -272,11 +225,11 @@ void render()
       float pX = (2 * ((i + 0.5) / WIDTH) - 1) * tan(fov / 2 * M_PI / 180) * aspectRatio;
       float pY = (1 - 2 * ((j + 0.5) / HEIGHT)) * tan(fov / 2 * M_PI / 180);
       // As the origin is (0, 0, 0), I don't need to do the subtraction
-      ray.direction = {pX, pY, 1.0f};
+      ray.direction = {pX, pY, -1.0f};
       ray.direction = normalize(ray.direction);
       //printV3(ray.direction);
 
-      v3 hitPoint;
+      glm::vec3 hitPoint;
 
       float minDistance = FLT_MAX;
       
@@ -291,7 +244,7 @@ void render()
           // If it is less than the previous one, this is 
           // the closer object, and we have to store it in order
           // to take its color as the color for this pixel
-          float dist = myDistance(eyePosition, hitPoint);
+          float dist = glm::distance(eyePosition, hitPoint);
           
           if (dist < minDistance)
           {
@@ -299,7 +252,6 @@ void render()
             minDistance = dist;
           }
         } 
-        //exit(1);
       }
 
       // For the moment is going to be always NULL
@@ -313,15 +265,6 @@ void render()
       }
     }
   }
-
-  /*for (int i = 0; i < WIDTH; i++)
-  {
-    for (int j = 0; j < HEIGHT; j++)
-    {
-      cout << image[i][j].x << ", " << image[i][j].y 
-           << ", " << image[i][j].z << endl;
-    }
-  }*/
 
   std::ofstream ofs("./untitled.ppm", std::ios::out | std::ios::binary);
   ofs << "P6\n" << WIDTH << " " << HEIGHT << "\n255\n";
