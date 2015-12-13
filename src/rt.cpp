@@ -15,13 +15,6 @@ using namespace std;
 #define WIDTH 500
 #define HEIGHT 500
 
-struct v3
-{
-  float x;
-  float y;
-  float z;
-};
-
 struct Ray
 {
   glm::vec3 origin;
@@ -33,9 +26,6 @@ struct Sphere
   glm::vec3 center;
   float radius;
   glm::vec3 color;
-  glm::vec3 diffuse = {128.0f, 128.0f, 128.0f};
-  glm::vec3 specular= {255.0f, 255.0f, 255.0f};
-  float shininess = 100.0f;
   glm::vec3 hitPoint;
   glm::vec3 hitNormal;
 };
@@ -47,6 +37,14 @@ struct Plane
   glm::vec3 color;
 };
 
+class Object
+{
+  // NOTE(ralntdir): I don't want to use oop, but...
+  // Can't think of a good way to add different
+  // shapes in the same scene. Ask for help?
+};
+
+// TODO(ralntdir): Check if this type of light is correct
 struct Light
 {
   glm::vec3 position;
@@ -182,8 +180,8 @@ bool intersectSphere(Sphere sphere, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hit
         t = t2;
       }
 
-      *hitPoint = ray.origin + ray.direction * t;
-      //*hitPoint = ray.origin + ray.direction * (t - 0.1f);
+      //*hitPoint = ray.origin + ray.direction * t;
+      *hitPoint = ray.origin + ray.direction * (t - 0.001f);
       *hitNormal = glm::normalize(*hitPoint - sphere.center);
     }
   }
@@ -198,17 +196,17 @@ void render()
   // Then I will add diffuse shading (lights) and after that
   // shadows.
 
-  // TODO(ivan): I need to define the camera and the plane
+  // TODO(ralntdir): I need to define the camera and the plane
   // I'm projecting the scene on!!!
-  // NOTE(ivan): For the moment, the camera is at (0, 0, 0) and pointing 
+  // NOTE(ralntdir): For the moment, the camera is at (0, 0, 0) and pointing 
   // to -Z and the plane is an XY plane at Z=-1;
 
-  // NOTE(ivan): I'm working with a right handed one coordinate
+  // NOTE(ralntdir): I'm working with a right handed one coordinate
   // system
   
   vector<Sphere> scene;
   glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
-  glm::vec3 ambient = {51.0f, 51.0f, 51.0f};
+  glm::vec3 ambient = {25.5f, 25.5f, 25.5f};
 
   Light testLight = {};
   testLight.position = {0.0f, 30.0f, -10.0f};
@@ -223,7 +221,7 @@ void render()
   testSphere.radius = 3.0f;
   testSphere.color = {0.0f, 0.0f, 255.0f};
   scene.push_back(testSphere);
-  testSphere.center = {0.0f, 1.5f, -10.0f};
+  testSphere.center = {1.0f, 1.5f, -10.0f};
   testSphere.radius = 2.0f;
   testSphere.color = {0.0f, 255.0f, 0.0f};
   scene.push_back(testSphere);
@@ -233,7 +231,7 @@ void render()
   scene.push_back(testSphere);*/
 
   // In degrees
-  float fov = 45.0f;
+  float fov = 80.0f;
   float aspectRatio = (float)WIDTH / (float)HEIGHT;
 
   // trace rays
@@ -288,6 +286,7 @@ void render()
         glm::vec3 hitPointS;
         glm::vec3 hitNormalS;
         shadowRay.direction = glm::normalize(testLight.position - closerObject->hitPoint);
+        shadowRay.origin = closerObject->hitPoint;
         bool inShadow = false;
         for (int k = 0; k < scene.size(); k++)
         {
@@ -301,12 +300,12 @@ void render()
         if (!inShadow)
         {
           //image[x][y] = testLight.color * (closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f));
-          image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f) ;
+          image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
         }
         else
         {
-          cout << "IN SHADOW" << endl;
-          image[x][y] = black + ambient;
+          //cout << "IN SHADOW" << endl;
+          image[x][y] = black;// + ambient;
         }
       }
     }
