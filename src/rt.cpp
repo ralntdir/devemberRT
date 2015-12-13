@@ -37,11 +37,43 @@ struct Plane
   glm::vec3 color;
 };
 
+bool intersectSphere(glm::vec3 center, float radius, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal);
+
 class Object
 {
   // NOTE(ralntdir): I don't want to use oop, but...
   // Can't think of a good way to add different
   // shapes in the same scene. Ask for help?
+  public:
+    glm::vec3 color;
+    glm::vec3 hitPoint;
+    glm::vec3 hitNormal;
+    virtual bool intersect() = 0;
+
+};
+
+class mySphere : public Object
+{
+  public:
+    glm::vec3 center;
+    float radius;
+    bool intersect(Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
+    {
+      return intersectSphere(center, radius, ray, hitPoint, hitNormal);
+    }
+};
+
+class myPlane : public Object
+{
+  protected:
+    glm::vec3 normal;
+    glm::vec3 p0;
+  public:
+    bool intersect()//Sphere sphere, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
+    {
+      //intersectSphere(sphere, ray, hitPoint, hitNormal);
+      return false;
+    }
 };
 
 // TODO(ralntdir): Check if this type of light is correct
@@ -122,18 +154,18 @@ void close()
   SDL_Quit();
 }
 
-bool intersectSphere(Sphere sphere, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
+bool intersectSphere(glm::vec3 center, float radius, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
 {
   // first version for an intersect method
   // we just need the hit point for the intersection
   bool success;
-  glm::vec3 originCenter = ray.origin - sphere.center;
+  glm::vec3 originCenter = ray.origin - center;
   float a = glm::dot(ray.direction, ray.direction);
   //cout << a << endl;
   float b = 2 * glm::dot(ray.direction, originCenter); 
   //cout << b << endl;
   float c = glm::dot(originCenter, originCenter) - 
-            (sphere.radius * sphere.radius);
+            (radius * radius);
 
   //cout << c << endl;
   float discriminant = b * b - 4 * a * c;
@@ -182,7 +214,7 @@ bool intersectSphere(Sphere sphere, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hit
 
       //*hitPoint = ray.origin + ray.direction * t;
       *hitPoint = ray.origin + ray.direction * (t - 0.001f);
-      *hitNormal = glm::normalize(*hitPoint - sphere.center);
+      *hitNormal = glm::normalize(*hitPoint - center);
     }
   }
 
@@ -258,7 +290,7 @@ void render()
 
       for (int k = 0; k < scene.size(); k++)
       {
-        if (intersectSphere(scene[k], ray, &scene[k].hitPoint, &scene[k].hitNormal))
+        if (intersectSphere(scene[k].center, scene[k].radius, ray, &scene[k].hitPoint, &scene[k].hitNormal))
         {
           //cout << "FOO" << endl;
           // Calculate the distance between hitPoint and eye
@@ -290,7 +322,7 @@ void render()
         bool inShadow = false;
         for (int k = 0; k < scene.size(); k++)
         {
-          if (intersectSphere(scene[k], shadowRay, &hitPointS, &hitNormalS))
+          if (intersectSphere(scene[k].center, scene[k].radius, shadowRay, &hitPointS, &hitNormalS))
           {
             inShadow = true;
             break;
