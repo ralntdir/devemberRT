@@ -15,10 +15,36 @@ using namespace std;
 #define WIDTH 500
 #define HEIGHT 500
 
+enum meshType
+{
+  sphere,
+  plane
+};
+
+typedef enum meshType meshType;
+
 struct Ray
 {
   glm::vec3 origin;
   glm::vec3 direction;
+};
+
+struct Mesh
+{
+  glm::vec3 color;
+  glm::vec3 hitPoint;
+  glm::vec3 hitNormal;
+  meshType type;
+  union
+  {
+    glm::vec3 center;
+    glm::vec3 p0;
+  };
+  union
+  {
+    glm::vec3 normal;
+    float radius;
+  };
 };
 
 struct Sphere
@@ -187,7 +213,7 @@ bool intersectSphere(glm::vec3 center, float radius, Ray ray, glm::vec3 *hitPoin
 bool intersectPlane(glm::vec3 p0, glm::vec3 normal, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
 {
   // t = (p_0 - rayOrigin).normal / rayDirection.n
-  bool success;
+  bool success = false;
   float denom = glm::dot(ray.direction, normal);
   if (denom > 1e-6)
   {
@@ -209,6 +235,18 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, Ray ray, glm::vec3 *hitPoint
   return success;
 }
 
+bool intersect(Mesh *mesh, Ray ray)
+{
+  if (mesh->type == sphere)
+  {
+    return intersectSphere(mesh->center, mesh->radius, ray, &mesh->hitPoint, &mesh->hitNormal);
+  }
+  else if (mesh->type == plane)
+  {
+    return intersectPlane(mesh->p0, mesh->normal, ray, &mesh->hitPoint, &mesh->hitNormal);
+  }
+}
+
 void render()
 {
   // Creates an image using the ray tracing method.
@@ -224,8 +262,7 @@ void render()
   // NOTE(ralntdir): I'm working with a right handed one coordinate
   // system
   
-  vector<Sphere> sceneSpheres;
-  vector<Plane> scenePlanes;
+  vector<Mesh> scene;
   glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
   glm::vec3 ambient = {25.5f, 25.5f, 25.5f};
 
@@ -237,19 +274,25 @@ void render()
   glm::vec3 image[WIDTH][HEIGHT] = {};
 
   // prepare the scene
-  Sphere testSphere = {};
-  testSphere.center = {0.0f, -4.0f, -10.0f};
-  testSphere.radius = 3.0f;
-  testSphere.color = {0.0f, 0.0f, 255.0f};
-  sceneSpheres.push_back(testSphere);
-  testSphere.center = {1.0f, 1.5f, -10.0f};
-  testSphere.radius = 2.0f;
-  testSphere.color = {0.0f, 255.0f, 0.0f};
-  sceneSpheres.push_back(testSphere);
-  /*testSphere.center = {0.0f, 5.0f, -7.0f};
-  testSphere.radius = 2.0f;
-  testSphere.color = {0.0f, 255.0f, 0.0f};
-  sceneSpheres.push_back(testSphere);*/
+  Mesh testMesh = {};
+  testMesh.center = {0.0f, -4.0f, -10.0f};
+  testMesh.radius = 3.0f;
+  testMesh.color = {0.0f, 0.0f, 255.0f};
+  testMesh.type = sphere;
+  scene.push_back(testMesh);
+  testMesh.center = {1.0f, 1.5f, -10.0f};
+  testMesh.radius = 2.0f;
+  testMesh.color = {0.0f, 255.0f, 0.0f};
+  scene.push_back(testMesh);
+  testMesh.p0 = {0.0f, 0.0f, -20.0f};
+  testMesh.normal = {0.0f, 0.0f, 1.0f};
+  testMesh.color = {255.0f, 255.0f, 0.0f};
+  testMesh.type = plane;
+  scene.push_back(testMesh);
+  /*testMesh.center = {0.0f, 5.0f, -7.0f};
+  testMesh.radius = 2.0f;
+  testMesh.color = {0.0f, 255.0f, 0.0f};
+  sceneSpheres.push_back(testMesh);*/
 
   // In degrees
   float fov = 80.0f;
@@ -273,52 +316,31 @@ void render()
       //glm::vec3 hitPoint;
       //glm::vec3 hitNormal;
 
-      float minDistanceSpheres = FLT_MAX;
-      float minDistancePlanes = FLT_MAX;
+      float minDistance= FLT_MAX;
       
-      Sphere *closerObjectSpheres = NULL;
-      Plane *closerObjectPlanes = NULL;
+      Mesh *closerObject= NULL;
 
-      for (int k = 0; k < sceneSpheres.size(); k++)
+      for (int k = 0; k < scene.size(); k++)
       {
-        if (intersectSphere(sceneSpheres[k].center, sceneSpheres[k].radius, ray, &sceneSpheres[k].hitPoint, &sceneSpheres[k].hitNormal))
+        if (intersect(&scene[k], ray))
         {
           //cout << "FOO" << endl;
           // Calculate the distance between hitPoint and eye
           // If it is less than the previous one, this is 
           // the closer object, and we have to store it in order
           // to take its color as the color for this pixel
-          float dist = glm::distance(eyePosition, sceneSpheres[k].hitPoint);
+          float dist = glm::distance(eyePosition, scene[k].hitPoint);
           
-          if (dist < minDistanceSpheres)
+          if (dist < minDistance)
           {
-            closerObjectSpheres = &sceneSpheres[k];
-            minDistanceSpheres = dist;
-          }
-        } 
-      }
-
-      for (int k = 0; k < scenePlanes.size(); k++)
-      {
-        if (intersectPlane(scenePlanes[k].p0, scenePlanes[k].normal, ray, &scenePlanes[k].hitPoint, &scenePlanes[k].hitNormal))
-        {
-          //cout << "FOO" << endl;
-          // Calculate the distance between hitPoint and eye
-          // If it is less than the previous one, this is 
-          // the closer object, and we have to store it in order
-          // to take its color as the color for this pixel
-          float dist = glm::distance(eyePosition, scenePlanes[k].hitPoint);
-          
-          if (dist < minDistancePlanes)
-          {
-            closerObjectPlanes = &scenePlanes[k];
-            minDistancePlanes = dist;
+            closerObject= &scene[k];
+            minDistance= dist;
           }
         } 
       }
 
       // For the moment is going to be always NULL
-      if (closerObjectSpheres == NULL)
+      if (closerObject== NULL)
       {
         image[x][y] = color;
       }
@@ -327,21 +349,12 @@ void render()
         Ray shadowRay;
         glm::vec3 hitPointS;
         glm::vec3 hitNormalS;
-        shadowRay.direction = glm::normalize(testLight.position - closerObjectSpheres->hitPoint);
-        shadowRay.origin = closerObjectSpheres->hitPoint;
+        shadowRay.direction = glm::normalize(testLight.position - closerObject->hitPoint);
+        shadowRay.origin = closerObject->hitPoint;
         bool inShadow = false;
-        for (int k = 0; k < sceneSpheres.size(); k++)
+        for (int k = 0; k < scene.size(); k++)
         {
-          if (intersectSphere(sceneSpheres[k].center, sceneSpheres[k].radius, shadowRay, &hitPointS, &hitNormalS))
-          {
-            inShadow = true;
-            break;
-          } 
-        }
-
-        for (int k = 0; k < scenePlanes.size(); k++)
-        {
-          if (intersectPlane(scenePlanes[k].p0, scenePlanes[k].normal, shadowRay, &hitPointS, &hitNormalS))
+          if (intersect(&scene[k], shadowRay))
           {
             inShadow = true;
             break;
@@ -351,7 +364,7 @@ void render()
         if (!inShadow)
         {
           //image[x][y] = testLight.color * (closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f));
-          image[x][y] = closerObjectSpheres->color * max(glm::dot(closerObjectSpheres->hitNormal, shadowRay.direction), 0.0f);
+          image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
         }
         else
         {
