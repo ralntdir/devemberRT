@@ -12,8 +12,8 @@
 
 using namespace std;
 
-#define WIDTH 500
-#define HEIGHT 500
+#define WIDTH 300
+#define HEIGHT 300
 
 enum meshType
 {
@@ -215,19 +215,24 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, Ray ray, glm::vec3 *hitPoint
   // t = (p_0 - rayOrigin).normal / rayDirection.n
   bool success = false;
   float denom = glm::dot(ray.direction, normal);
+  cout << denom << endl;
   if (denom > 1e-6)
   {
     glm::vec3 p0rayOrigin = p0 - ray.origin;
+    printV3(p0rayOrigin);
     float t = glm::dot(p0rayOrigin, normal) / denom;
+    cout << t << endl;
     *hitPoint = ray.origin + ray.direction * (t - 0.001f);
     // normal for a point in the plane is the normal of the plane...? I think so.
     *hitNormal = normal;
     if (t >= 0)
     {
+      cout << "SUCCESS" << endl;
       success = true;
     }
     else
     {
+      cout << "NOT SUCCESS" << endl;
       success = false;
     }
 
@@ -284,8 +289,8 @@ void render()
   testMesh.radius = 2.0f;
   testMesh.color = {0.0f, 255.0f, 0.0f};
   scene.push_back(testMesh);
-  testMesh.p0 = {0.0f, 0.0f, -20.0f};
-  testMesh.normal = {0.0f, 0.0f, 1.0f};
+  testMesh.p0 = {20.0f, 10.0f, -10.0f};
+  testMesh.normal = {0.5f, 0.5f, 0.0f};
   testMesh.color = {255.0f, 255.0f, 0.0f};
   testMesh.type = plane;
   scene.push_back(testMesh);
@@ -340,12 +345,13 @@ void render()
       }
 
       // For the moment is going to be always NULL
-      if (closerObject== NULL)
+      if (closerObject == NULL)
       {
         image[x][y] = color;
       }
       else
       {
+        cout << "FOO" << endl;
         Ray shadowRay;
         glm::vec3 hitPointS;
         glm::vec3 hitNormalS;
@@ -365,11 +371,13 @@ void render()
         {
           //image[x][y] = testLight.color * (closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f));
           image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
+          cout << "not in shadow" << endl;
         }
         else
         {
           //cout << "IN SHADOW" << endl;
           image[x][y] = black;// + ambient;
+          cout << "in shadow" << endl;
         }
       }
     }
