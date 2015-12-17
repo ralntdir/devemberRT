@@ -12,8 +12,8 @@
 
 using namespace std;
 
-#define WIDTH 300
-#define HEIGHT 300
+#define WIDTH 500
+#define HEIGHT 500
 
 enum meshType
 {
@@ -45,6 +45,7 @@ struct Mesh
     glm::vec3 normal;
     float radius;
   };
+  float dist;
 };
 
 struct Sphere
@@ -210,7 +211,7 @@ bool intersectSphere(glm::vec3 center, float radius, Ray ray, glm::vec3 *hitPoin
   return success;
 }
 
-bool intersectPlane(glm::vec3 p0, glm::vec3 normal, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
+bool intersectPlane(glm::vec3 p0, glm::vec3 normal, float dist, Ray ray, glm::vec3 *hitPoint, glm::vec3 *hitNormal)
 {
   // t = (p_0 - rayOrigin).normal / rayDirection.n
   bool success = false;
@@ -224,11 +225,20 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, Ray ray, glm::vec3 *hitPoint
     cout << t << endl;
     *hitPoint = ray.origin + ray.direction * (t - 0.001f);
     // normal for a point in the plane is the normal of the plane...? I think so.
-    *hitNormal = normal;
+    *hitNormal = -normal;
     if (t >= 0)
     {
-      cout << "SUCCESS" << endl;
-      success = true;
+      if ((abs(p0.x - hitPoint->x) < dist) &&
+          (abs(p0.y - hitPoint->y) < dist))
+      {
+        cout << "SUCCESS" << endl;
+        success = true;
+      }
+      else
+      {
+        cout << "NOT SUCCESS" << endl;
+        success = false;
+      }
     }
     else
     {
@@ -248,7 +258,7 @@ bool intersect(Mesh *mesh, Ray ray)
   }
   else if (mesh->type == plane)
   {
-    return intersectPlane(mesh->p0, mesh->normal, ray, &mesh->hitPoint, &mesh->hitNormal);
+    return intersectPlane(mesh->p0, mesh->normal, mesh->dist, ray, &mesh->hitPoint, &mesh->hitNormal);
   }
 }
 
@@ -269,10 +279,10 @@ void render()
   
   vector<Mesh> scene;
   glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
-  glm::vec3 ambient = {25.5f, 25.5f, 25.5f};
+  glm::vec3 ambient = {20.5f, 20.5f, 20.5f};
 
   Light testLight = {};
-  testLight.position = {0.0f, 30.0f, -10.0f};
+  testLight.position = {0.0f, 01.0f, -5.0f};
   testLight.color = {255.0f, 255.0f, 255.0f};
 
 
@@ -280,18 +290,20 @@ void render()
 
   // prepare the scene
   Mesh testMesh = {};
-  testMesh.center = {0.0f, -4.0f, -10.0f};
+  testMesh.center = {0.0f, -2.0f, -10.0f};
   testMesh.radius = 3.0f;
   testMesh.color = {0.0f, 0.0f, 255.0f};
   testMesh.type = sphere;
   scene.push_back(testMesh);
-  testMesh.center = {1.0f, 1.5f, -10.0f};
+  testMesh.center = {1.0f, 3.5f, -10.0f};
   testMesh.radius = 2.0f;
   testMesh.color = {0.0f, 255.0f, 0.0f};
+  testMesh.type = sphere;
   scene.push_back(testMesh);
-  testMesh.p0 = {20.0f, 10.0f, -10.0f};
-  testMesh.normal = {0.5f, 0.5f, 0.0f};
+  testMesh.p0 = {0.0f, -00.0f, -15.0f};
+  testMesh.normal = {0.0f, -0.0f, -1.0f};
   testMesh.color = {255.0f, 255.0f, 0.0f};
+  testMesh.dist = 10.0f;
   testMesh.type = plane;
   scene.push_back(testMesh);
   /*testMesh.center = {0.0f, 5.0f, -7.0f};
@@ -369,14 +381,14 @@ void render()
 
         if (!inShadow)
         {
-          //image[x][y] = testLight.color * (closerObject->color * max(glm::dot(hitNormal, shadowRay.direction), 0.0f));
-          image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
+          image[x][y] = glm::clamp(closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f) + ambient, 0.0f, 255.0f);
+          //image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
           cout << "not in shadow" << endl;
         }
         else
         {
           //cout << "IN SHADOW" << endl;
-          image[x][y] = black;// + ambient;
+          image[x][y] = glm::clamp(black + ambient, 0.0f, 255.0f);
           cout << "in shadow" << endl;
         }
       }
