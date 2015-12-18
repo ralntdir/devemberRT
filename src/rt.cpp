@@ -217,7 +217,7 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, float dist, Ray ray, glm::ve
   bool success = false;
   float denom = glm::dot(ray.direction, normal);
   cout << denom << endl;
-  if (denom > 1e-6)
+  if (abs(denom) > 1e-6)
   {
     glm::vec3 p0rayOrigin = p0 - ray.origin;
     printV3(p0rayOrigin);
@@ -225,7 +225,8 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, float dist, Ray ray, glm::ve
     cout << t << endl;
     *hitPoint = ray.origin + ray.direction * (t - 0.001f);
     // normal for a point in the plane is the normal of the plane...? I think so.
-    *hitNormal = -normal;
+    //*hitNormal = -normal;
+    *hitNormal = normal;
     if (t >= 0)
     {
       if ((abs(p0.x - hitPoint->x) < dist) &&
@@ -301,7 +302,7 @@ void render()
   testMesh.type = sphere;
   scene.push_back(testMesh);
   testMesh.p0 = {0.0f, -00.0f, -15.0f};
-  testMesh.normal = {0.0f, -0.0f, -1.0f};
+  testMesh.normal = {0.0f, -0.0f, 1.0f};
   testMesh.color = {255.0f, 255.0f, 0.0f};
   testMesh.dist = 10.0f;
   testMesh.type = plane;
