@@ -1,3 +1,5 @@
+// TODO(ralntdir): add multiple light support
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
@@ -14,6 +16,10 @@ using namespace std;
 
 #define WIDTH 500
 #define HEIGHT 500
+// In degrees
+#define FOV 80.0f
+#define ASPECT_RATIO (float)WIDTH / (float)HEIGHT
+
 
 enum meshType
 {
@@ -46,24 +52,7 @@ struct Mesh
     float radius;
   };
   float dist;
-};
-
-struct Sphere
-{
-  glm::vec3 center;
-  float radius;
-  glm::vec3 color;
-  glm::vec3 hitPoint;
-  glm::vec3 hitNormal;
-};
-
-struct Plane
-{
-  glm::vec3 normal;
-  glm::vec3 p0;
-  glm::vec3 color;
-  glm::vec3 hitPoint;
-  glm::vec3 hitNormal;
+  bool reflective;
 };
 
 // TODO(ralntdir): Check if this type of light is correct
@@ -79,6 +68,13 @@ SDL_Texture* texture = NULL;
 
 glm::vec3 color = {255.0, 0.0, 0.0};
 glm::vec3 black = {0.0, 0.0, 0.0};
+glm::vec3 white = {255.0f, 255.0f, 255.0f};
+
+vector<Mesh> scene;
+glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
+glm::vec3 ambient = {20.5f, 20.5f, 20.5f};
+
+Light testLight = {};
 
 void printV3(glm::vec3 vector)
 {
@@ -216,34 +212,30 @@ bool intersectPlane(glm::vec3 p0, glm::vec3 normal, float dist, Ray ray, glm::ve
   // t = (p_0 - rayOrigin).normal / rayDirection.n
   bool success = false;
   float denom = glm::dot(ray.direction, normal);
-  cout << denom << endl;
+  //cout << denom << endl;
   if (abs(denom) > 1e-6)
   {
     glm::vec3 p0rayOrigin = p0 - ray.origin;
-    printV3(p0rayOrigin);
+    //printV3(p0rayOrigin);
     float t = glm::dot(p0rayOrigin, normal) / denom;
-    cout << t << endl;
+    //cout << t << endl;
     *hitPoint = ray.origin + ray.direction * (t - 0.001f);
     // normal for a point in the plane is the normal of the plane...? I think so.
-    //*hitNormal = -normal;
     *hitNormal = normal;
     if (t >= 0)
     {
       if ((abs(p0.x - hitPoint->x) < dist) &&
           (abs(p0.y - hitPoint->y) < dist))
       {
-        cout << "SUCCESS" << endl;
         success = true;
       }
       else
       {
-        cout << "NOT SUCCESS" << endl;
         success = false;
       }
     }
     else
     {
-      cout << "NOT SUCCESS" << endl;
       success = false;
     }
 
@@ -263,6 +255,80 @@ bool intersect(Mesh *mesh, Ray ray)
   }
 }
 
+glm::vec3 castRay(Ray ray, int depth)
+{
+  glm::vec3 resultColor = {};
+  if (depth < 5)
+  {
+    float minDistance= FLT_MAX;
+
+    Mesh *closerObject= NULL;
+
+    for (int k = 0; k < scene.size(); k++)
+    {
+      if (intersect(&scene[k], ray))
+      {
+        // Calculate the distance between hitPoint and eye
+        // If it is less than the previous one, this is
+        // the closer object, and we have to store it in order
+        // to take its color as the color for this pixel
+        float dist = glm::distance(eyePosition, scene[k].hitPoint);
+
+        if (dist < minDistance)
+        {
+          closerObject= &scene[k];
+          minDistance= dist;
+        }
+      }
+    }
+    // For the moment is going to be always NULL
+    if (closerObject == NULL)
+    {
+      resultColor = color;
+    }
+    else
+    {
+      Ray shadowRay;
+      glm::vec3 hitPointS;
+      glm::vec3 hitNormalS;
+      shadowRay.direction = glm::normalize(testLight.position - closerObject->hitPoint);
+      shadowRay.origin = closerObject->hitPoint;
+      bool inShadow = false;
+      for (int k = 0; k < scene.size(); k++)
+      {
+        if (intersect(&scene[k], shadowRay))
+        {
+          inShadow = true;
+          break;
+        }
+      }
+      if (!inShadow)
+      {
+        resultColor = glm::clamp(closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f) + ambient, 0.0f, 255.0f);
+        //resultColor = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
+      }
+      else
+      {
+        resultColor = glm::clamp(black + ambient, 0.0f, 255.0f);
+      }
+    }
+
+    if (closerObject != NULL && closerObject->reflective)
+    {
+      Ray reflectedRay;
+      reflectedRay.origin = closerObject->hitPoint;
+      reflectedRay.direction = glm::normalize(glm::reflect(ray.direction, closerObject->hitNormal));
+      /*printV3(closerObject->hitNormal);
+      printV3(ray.direction);
+      printV3(reflectedRay.direction);
+      exit(1);*/
+      glm::vec3 reflectedColor = castRay(reflectedRay, depth+1);
+      resultColor = glm::clamp(resultColor + 0.8f * reflectedColor, 0.0f, 255.0f);
+    }
+  }
+  return resultColor;
+}
+
 void render()
 {
   // Creates an image using the ray tracing method.
@@ -278,12 +344,13 @@ void render()
   // NOTE(ralntdir): I'm working with a right handed one coordinate
   // system
   
-  vector<Mesh> scene;
+  /*vector<Mesh> scene;
   glm::vec3 eyePosition = {0.0f, 0.0f, 0.0f};
   glm::vec3 ambient = {20.5f, 20.5f, 20.5f};
 
-  Light testLight = {};
-  testLight.position = {0.0f, 01.0f, -5.0f};
+  Light testLight = {};*/
+  //testLight.position = {0.0f, 10.0f, -10.0f};
+  testLight.position = {0.0f, 10.0f, -5.0f};
   testLight.color = {255.0f, 255.0f, 255.0f};
 
 
@@ -291,30 +358,37 @@ void render()
 
   // prepare the scene
   Mesh testMesh = {};
-  testMesh.center = {0.0f, -2.0f, -10.0f};
+  //testMesh.center = {0.0f, -2.0f, -10.0f};
+  testMesh.center = {0.0f, 6.0f, -15.0f};
   testMesh.radius = 3.0f;
   testMesh.color = {0.0f, 0.0f, 255.0f};
   testMesh.type = sphere;
+  testMesh.reflective = false;
   scene.push_back(testMesh);
-  testMesh.center = {1.0f, 3.5f, -10.0f};
+  /*testMesh.center = {1.0f, 3.5f, -10.0f};
   testMesh.radius = 2.0f;
   testMesh.color = {0.0f, 255.0f, 0.0f};
   testMesh.type = sphere;
-  scene.push_back(testMesh);
-  testMesh.p0 = {0.0f, -00.0f, -15.0f};
+  testMesh.reflective = false;
+  scene.push_back(testMesh);*/
+  /*testMesh.p0 = {0.0f, -00.0f, -15.0f};
   testMesh.normal = {0.0f, -0.0f, 1.0f};
   testMesh.color = {255.0f, 255.0f, 0.0f};
   testMesh.dist = 10.0f;
   testMesh.type = plane;
+  testMesh.reflective = true;
+  scene.push_back(testMesh);*/
+  testMesh.p0 = {0.0f, -2.0f, -10.0f};
+  testMesh.normal = {0.0f, 0.66f, 0.34f};
+  testMesh.color = {0.0f, 0.0f, 0.0f};
+  testMesh.dist = 10.0f;
+  testMesh.type = plane;
+  testMesh.reflective = true;
   scene.push_back(testMesh);
   /*testMesh.center = {0.0f, 5.0f, -7.0f};
   testMesh.radius = 2.0f;
   testMesh.color = {0.0f, 255.0f, 0.0f};
   sceneSpheres.push_back(testMesh);*/
-
-  // In degrees
-  float fov = 80.0f;
-  float aspectRatio = (float)WIDTH / (float)HEIGHT;
 
   // trace rays
   for (int y = 0; y < HEIGHT; y++)
@@ -324,75 +398,14 @@ void render()
       // create the ray based in eye position, x and y
       Ray ray;
       ray.origin = eyePosition;
-      float pX = (2 * ((x + 0.5) / WIDTH) - 1) * tan(fov / 2 * M_PI / 180) * aspectRatio;
-      float pY = (1 - 2 * ((y + 0.5) / HEIGHT)) * tan(fov / 2 * M_PI / 180);
+      float pX = (2 * ((x + 0.5) / WIDTH) - 1) * tan(FOV / 2 * M_PI / 180) * ASPECT_RATIO;
+      float pY = (1 - 2 * ((y + 0.5) / HEIGHT)) * tan(FOV / 2 * M_PI / 180);
       // As the origin is (0, 0, 0), I don't need to do the subtraction
       ray.direction = {pX, pY, -1.0f};
       ray.direction = glm::normalize(ray.direction);
       //printV3(ray.direction);
 
-      //glm::vec3 hitPoint;
-      //glm::vec3 hitNormal;
-
-      float minDistance= FLT_MAX;
-      
-      Mesh *closerObject= NULL;
-
-      for (int k = 0; k < scene.size(); k++)
-      {
-        if (intersect(&scene[k], ray))
-        {
-          //cout << "FOO" << endl;
-          // Calculate the distance between hitPoint and eye
-          // If it is less than the previous one, this is 
-          // the closer object, and we have to store it in order
-          // to take its color as the color for this pixel
-          float dist = glm::distance(eyePosition, scene[k].hitPoint);
-          
-          if (dist < minDistance)
-          {
-            closerObject= &scene[k];
-            minDistance= dist;
-          }
-        } 
-      }
-
-      // For the moment is going to be always NULL
-      if (closerObject == NULL)
-      {
-        image[x][y] = color;
-      }
-      else
-      {
-        cout << "FOO" << endl;
-        Ray shadowRay;
-        glm::vec3 hitPointS;
-        glm::vec3 hitNormalS;
-        shadowRay.direction = glm::normalize(testLight.position - closerObject->hitPoint);
-        shadowRay.origin = closerObject->hitPoint;
-        bool inShadow = false;
-        for (int k = 0; k < scene.size(); k++)
-        {
-          if (intersect(&scene[k], shadowRay))
-          {
-            inShadow = true;
-            break;
-          } 
-        }
-
-        if (!inShadow)
-        {
-          image[x][y] = glm::clamp(closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f) + ambient, 0.0f, 255.0f);
-          //image[x][y] = closerObject->color * max(glm::dot(closerObject->hitNormal, shadowRay.direction), 0.0f);
-          cout << "not in shadow" << endl;
-        }
-        else
-        {
-          //cout << "IN SHADOW" << endl;
-          image[x][y] = glm::clamp(black + ambient, 0.0f, 255.0f);
-          cout << "in shadow" << endl;
-        }
-      }
+      image[x][y] = castRay(ray, 1);
     }
   }
 
