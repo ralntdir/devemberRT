@@ -66,7 +66,7 @@ SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Texture* texture = NULL;
 
-glm::vec3 color = {255.0, 0.0, 0.0};
+glm::vec3 color = {200.0, 0.0, 0.0};
 glm::vec3 black = {0.0, 0.0, 0.0};
 glm::vec3 white = {255.0f, 255.0f, 255.0f};
 
@@ -78,7 +78,7 @@ Light testLight = {};
 
 void printV3(glm::vec3 vector)
 {
-  cout << vector.x << ", " << vector.y << ", " << vector.z << endl;
+  cout << "Vec3: " << vector.x << ", " << vector.y << ", " << vector.z << endl;
 }
 
 bool init()
@@ -298,7 +298,7 @@ glm::vec3 castRay(Ray ray, int depth)
       {
         if (intersect(&scene[k], shadowRay))
         {
-          inShadow = true;
+          inShadow = false;
           break;
         }
       }
@@ -311,17 +311,19 @@ glm::vec3 castRay(Ray ray, int depth)
       {
         resultColor = glm::clamp(black + ambient, 0.0f, 255.0f);
       }
+      if (depth > 1) printV3(resultColor);
     }
 
     if (closerObject != NULL && closerObject->reflective)
     {
+      cout << "Reflective" << endl;
       Ray reflectedRay;
       reflectedRay.origin = closerObject->hitPoint;
       reflectedRay.direction = glm::normalize(glm::reflect(ray.direction, closerObject->hitNormal));
-      /*printV3(closerObject->hitNormal);
-      printV3(ray.direction);
-      printV3(reflectedRay.direction);
-      exit(1);*/
+      //printV3(closerObject->hitNormal);
+      //printV3(ray.direction);
+      //printV3(reflectedRay.direction);
+      //exit(1);
       glm::vec3 reflectedColor = castRay(reflectedRay, depth+1);
       resultColor = glm::clamp(resultColor + 0.8f * reflectedColor, 0.0f, 255.0f);
     }
@@ -350,7 +352,7 @@ void render()
 
   Light testLight = {};*/
   //testLight.position = {0.0f, 10.0f, -10.0f};
-  testLight.position = {0.0f, 10.0f, -5.0f};
+  testLight.position = {0.0f, -2.0f, -5.0f};
   testLight.color = {255.0f, 255.0f, 255.0f};
 
 
@@ -359,9 +361,9 @@ void render()
   // prepare the scene
   Mesh testMesh = {};
   //testMesh.center = {0.0f, -2.0f, -10.0f};
-  testMesh.center = {0.0f, 6.0f, -15.0f};
+  testMesh.center = {0.0f, 3.0f, -15.0f};
   testMesh.radius = 3.0f;
-  testMesh.color = {0.0f, 0.0f, 255.0f};
+  testMesh.color = {0.0f, 255.0f, 255.0f};
   testMesh.type = sphere;
   testMesh.reflective = false;
   scene.push_back(testMesh);
@@ -378,8 +380,8 @@ void render()
   testMesh.type = plane;
   testMesh.reflective = true;
   scene.push_back(testMesh);*/
-  testMesh.p0 = {0.0f, -2.0f, -10.0f};
-  testMesh.normal = {0.0f, 0.66f, 0.34f};
+  testMesh.p0 = {0.0f, -1.0f, -20.0f};
+  testMesh.normal = {0.0f, 1.0f, 0.0f};
   testMesh.color = {0.0f, 0.0f, 0.0f};
   testMesh.dist = 10.0f;
   testMesh.type = plane;
